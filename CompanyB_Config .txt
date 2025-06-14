@@ -1,0 +1,432 @@
+COMPANY B CONFIGURATION
+======================
+conf t
+hostname ASW1B
+
+vlan 40
+ name Sales
+vlan 50
+ name Marketing
+vlan 60
+ name HR
+vlan 100
+ name Native
+
+interface Ethernet0/0
+ description **Connected to PC1B**
+ switchport mode access
+ switchport access vlan 40
+ no shutdown
+
+interface Ethernet0/1
+ description **Connected to PC2B**
+ switchport mode access
+ switchport access vlan 40
+ no shutdown
+
+interface Ethernet0/2
+ description **Uplink to MSW1B**
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,60
+ switchport trunk native vlan 100
+ no shutdown
+
+interface Ethernet0/3
+ description **Uplink to MSW2B**
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,60
+ switchport trunk native vlan 100
+ no shutdown
+
+spanning-tree mode rapid-pvst
+end
+write memory
+---------------------------------------------------------------------
+conf t
+hostname ASW2B
+
+vlan 40
+ name Sales
+vlan 50
+ name Marketing
+vlan 60
+ name HR
+vlan 100
+ name Native
+
+interface Ethernet0/0
+ description **Connected to PC3B**
+ switchport mode access
+ switchport access vlan 50
+ no shutdown
+
+interface Ethernet0/1
+ description **Connected to PC4B**
+ switchport mode access
+ switchport access vlan 50
+ no shutdown
+
+interface Ethernet0/2
+ description **Uplink to MSW1B**
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,60
+ switchport trunk native vlan 100
+ no shutdown
+
+interface Ethernet0/3
+ description **Uplink to MSW2B**
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,60
+ switchport trunk native vlan 100
+ no shutdown
+
+spanning-tree mode rapid-pvst
+end
+write memory
+----------------------------------------------------------------
+conf t
+hostname ASW3B
+
+vlan 40
+ name Sales
+vlan 50
+ name Marketing
+vlan 60
+ name HR
+vlan 100
+ name Native
+
+interface Ethernet0/0
+ description **Connected to PC5B**
+ switchport mode access
+ switchport access vlan 60
+ no shutdown
+
+interface Ethernet0/1
+ description **Connected to PC6B**
+ switchport mode access
+ switchport access vlan 60
+ no shutdown
+
+interface Ethernet0/2
+ description **Uplink to MSW1B**
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,60
+ switchport trunk native vlan 100
+ no shutdown
+
+interface Ethernet0/3
+ description **Uplink to MSW2B**
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,60
+ switchport trunk native vlan 100
+ no shutdown
+
+spanning-tree mode rapid-pvst
+end
+write memory
+----------------------------------------------------
+
+conf t
+hostname MSW1B
+
+vlan 40
+ name Sales
+vlan 50
+ name Marketing
+vlan 60
+ name HR
+vlan 100
+ name Native
+
+interface Loopback0
+ ip address 1.1.1.1 255.255.255.255
+ no shutdown
+ 
+interface Ethernet0/0
+ description **Uplink to ASW1B**
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,60
+ switchport trunk native vlan 100
+ no shutdown
+
+interface Ethernet0/1
+ description **Uplink to ASW2B**
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,60
+ switchport trunk native vlan 100
+ no shutdown
+
+interface Ethernet0/2
+ description **Uplink to ASW3B**
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,60
+ switchport trunk native vlan 100
+ no shutdown
+
+interface Ethernet0/3
+ description **Uplink to RB**
+ no switchport
+ ip address 192.168.1.2 255.255.255.0
+ ip ospf 1 area 10
+ no shutdown
+
+interface Vlan40
+ ip address 192.168.40.1 255.255.255.0
+ standby 1 ip 192.168.40.254
+ standby 1 priority 110
+ standby 1 preempt
+ no shutdown
+
+interface Vlan50
+ ip address 192.168.50.1 255.255.255.0
+ standby 1 ip 192.168.50.254
+ standby 1 priority 110
+ standby 1 preempt
+ no shutdown
+
+interface Vlan60
+ ip address 192.168.60.1 255.255.255.0
+ standby 1 ip 192.168.60.254
+ standby 1 priority 110
+ standby 1 preempt
+ no shutdown
+
+ip dhcp excluded-address 192.168.40.1 192.168.40.10
+ip dhcp excluded-address 192.168.50.1 192.168.50.10
+ip dhcp excluded-address 192.168.60.1 192.168.60.10
+
+ip dhcp pool VLAN40
+ network 192.168.40.0 255.255.255.0
+ default-router 192.168.40.1
+ dns-server 8.8.8.8
+
+ip dhcp pool VLAN50
+ network 192.168.50.0 255.255.255.0
+ default-router 192.168.50.1
+ dns-server 8.8.8.8
+
+ip dhcp pool VLAN60
+ network 192.168.60.0 255.255.255.0
+ default-router 192.168.60.1
+ dns-server 8.8.8.8
+
+router ospf 1
+ router-id 1.1.1.1
+ network 192.168.40.0 0.0.0.255 area 10
+ network 192.168.50.0 0.0.0.255 area 10
+ network 192.168.60.0 0.0.0.255 area 10
+ network 192.168.1.0 0.0.0.255 area 10
+ network 1.1.1.1 0.0.0.0 area 10
+
+spanning-tree mode rapid-pvst
+ip routing
+end
+write memory
+-------------------------------------------------------
+conf t
+hostname MSW2B
+
+vlan 40
+ name Sales
+vlan 50
+ name Marketing
+vlan 60
+ name HR
+vlan 100
+ name Native
+ 
+interface Loopback0
+ ip address 2.2.2.2 255.255.255.255
+ no shutdown
+
+interface Ethernet0/0
+ description **Uplink to ASW1B**
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,60
+ switchport trunk native vlan 100
+ no shutdown
+
+interface Ethernet0/1
+ description **Uplink to ASW2B**
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,60
+ switchport trunk native vlan 100
+ no shutdown
+
+interface Ethernet0/2
+ description **Uplink to ASW3B**
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,60
+ switchport trunk native vlan 100
+ no shutdown
+
+interface Ethernet0/3
+ description **Uplink to RB**
+ no switchport
+ ip address 192.168.2.2 255.255.255.0
+ ip ospf 1 area 10
+ no shutdown
+
+interface Vlan40
+ ip address 192.168.40.2 255.255.255.0
+ standby 1 ip 192.168.40.254
+ standby 1 priority 90
+ standby 1 preempt
+ no shutdown
+
+interface Vlan50
+ ip address 192.168.50.2 255.255.255.0
+ standby 1 ip 192.168.50.254
+ standby 1 priority 90
+ standby 1 preempt
+ no shutdown
+
+interface Vlan60
+ ip address 192.168.60.2 255.255.255.0
+ standby 1 ip 192.168.60.254
+ standby 1 priority 90
+ standby 1 preempt
+ no shutdown
+
+no service dhcp
+
+ip dhcp excluded-address 192.168.40.1 192.168.40.10
+ip dhcp excluded-address 192.168.50.1 192.168.50.10
+ip dhcp excluded-address 192.168.60.1 192.168.60.10
+
+ip dhcp pool VLAN40
+ network 192.168.40.0 255.255.255.0
+ default-router 192.168.40.2
+ dns-server 8.8.8.8
+
+ip dhcp pool VLAN50
+ network 192.168.50.0 255.255.255.0
+ default-router 192.168.50.2
+ dns-server 8.8.8.8
+
+ip dhcp pool VLAN60
+ network 192.168.60.0 255.255.255.0
+ default-router 192.168.60.2
+ dns-server 8.8.8.8
+
+router ospf 1
+ router-id 2.2.2.2
+ network 192.168.40.0 0.0.0.255 area 10
+ network 192.168.50.0 0.0.0.255 area 10
+ network 192.168.60.0 0.0.0.255 area 10
+ network 192.168.2.0 0.0.0.255 area 10
+ network 2.2.2.2 0.0.0.0 area 10
+ 
+spanning-tree mode rapid-pvst
+ip routing
+end
+
+! EEM script to enable DHCP if MSW3 fails
+event manager applet Enable-DHCP-If-MSW3-Fails
+ event timer watchdog time 60
+ action 1.0 cli command "enable"
+ action 1.1 cli command "ping 192.168.1.2 repeat 2 timeout 1"
+ action 1.2 regexp "Success rate is 0 percent" "$_cli_result" result
+ action 1.3 if $result eq "1"
+ action 1.4  cli command "conf t"
+ action 1.5  cli command "no service dhcp"
+ action 1.6  cli command "end"
+ action 1.7  syslog msg "MSW3 unreachable — DHCP enabled on MSW4"
+ action 1.8 end
+
+! EEM script to disable DHCP if MSW3 is back
+event manager applet Disable-DHCP-If-MSW3-Up
+ event timer watchdog time 120
+ action 1.0 cli command "enable"
+ action 1.1 cli command "ping 192.168.1.2 repeat 2 timeout 1"
+ action 1.2 regexp "Success rate is [^0]" "$_cli_result" result
+ action 1.3 if $result eq "1"
+ action 1.4  cli command "conf t"
+ action 1.5  cli command "service dhcp"
+ action 1.6  cli command "end"
+ action 1.7  syslog msg "MSW3 reachable — DHCP disabled on MSW4"
+ action 1.8 end
+
+write memory
+=========================================================
+conf t
+hostname RB
+
+interface Loopback0
+ ip address 3.3.3.3 255.255.255.255
+ no shutdown
+
+interface FastEthernet1/2
+ description **To MSW1B**
+ no switchport
+ ip address 192.168.1.1 255.255.255.0
+ no shutdown
+
+interface FastEthernet1/3
+ description **To MSW2B**
+ no switchport
+ ip address 192.168.2.1 255.255.255.0
+ no shutdown
+
+interface FastEthernet1/0
+ no switchport
+ description **Primary Link to RA**
+ ip address 10.10.10.2 255.255.255.252
+ no shutdown
+
+interface FastEthernet1/1
+ no switchport
+ description **Backup Link to RA**
+ ip address 10.10.20.2 255.255.255.252
+ no shutdown
+
+router ospf 1
+ router-id 3.3.3.3
+ network 192.168.1.0 0.0.0.255 area 10
+ network 192.168.2.0 0.0.0.255 area 10
+ network 3.3.3.3 0.0.0.0 area 10
+ network 192.168.40.0 0.0.0.255 area 10
+ network 192.168.50.0 0.0.0.255 area 10
+ network 192.168.60.0 0.0.0.255 area 10
+ redistribute bgp 200 subnets
+ redistribute bgp 100 metric 10 subnets
+
+router bgp 200
+ bgp log-neighbor-changes
+ neighbor 10.10.10.1 remote-as 100
+ neighbor 10.10.20.1 remote-as 100
+ neighbor 10.10.20.1 weight 50
+ network 192.168.3.0 mask 255.255.255.0
+ network 192.168.4.0 mask 255.255.255.0
+ network 192.168.10.0 mask 255.255.255.0
+ network 192.168.20.0 mask 255.255.255.0
+ network 192.168.30.0 mask 255.255.255.0
+ network 192.168.40.0 mask 255.255.255.0
+ network 192.168.50.0 mask 255.255.255.0
+ network 192.168.60.0 mask 255.255.255.0
+ redistribute ospf 1 match internal external 1 external 2
+ default-information originate
+
+end
+write memory
+-----------------------------------------------------------
+
+192.168.10.12 PC2A
+192.168.20.11 PC3A
+192.168.20.12 PC4A
+192.168.30.11 PC5A
+192.168.30.12 PC6A
+
