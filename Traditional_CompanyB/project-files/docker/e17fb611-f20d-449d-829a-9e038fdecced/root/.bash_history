@@ -1,0 +1,2 @@
+ifconfig
+ip dhcp
