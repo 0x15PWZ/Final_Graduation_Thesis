@@ -1,0 +1,415 @@
+All configurations
+==================
+On RA,MSW1A,MSW2A,ASW1A,ASW2A,ASW3A
+------------------------------
+conf t
+hostname RA
+ip tcp synwait 5
+no service timestamps
+no service time debug
+
+line console 0
+no login
+no exec-timeout
+logging synch
+privilege level 15
+
+line aux 0
+no login
+no exec-timeout
+logging synch
+privilege level 15
+
+line vty 0 4
+login local 
+transport input all
+ip domain-name netautomation.com
+crypto key gen rsa
+1024
+
+int f0/0
+ip add 192.168.123.101 255.255.255.0
+no shut
+
+username admin password pass123
+username admin priv 15
+end
+
+write
+===========================================================
+On network automation
+--------------------
+nano myhosts
+
+RA
+MSW1A
+MSW2A
+ASW1A
+ASW2A
+ASW3A
+--------------------
+nano /etc/hosts
+
+192.168.123.106 RA
+192.168.123.104 MSW1A
+192.168.123.105 MSW2A
+192.168.123.101 ASW1A
+192.168.123.102 ASW2A
+192.168.123.103 ASW3A
+--------------------
+nano ansible.cfg
+
+[defaults]
+inventory = ./myhosts
+host_key_checking = false
+timeout = 15
+deprecation_warnings = False
+===============================================================
+nano playbook.yml
+=================
+---
+- name: Configure All Layer Devices
+  hosts: MSW1A, MSW2A, ASW1A, ASW2A, ASW3A
+  gather_facts: false
+  connection: network_cli
+
+  vars:
+    ansible_network_os: ios
+    ansible_user: admin
+    ansible_password: pass123
+    ansible_become: yes
+    ansible_become_method: enable
+
+  tasks:
+    - name: Configure VLAN 10
+      ios_config:
+        lines:
+          - name Data
+        parents: vlan 10
+
+    - name: Configure VLAN 20
+      ios_config:
+        lines:
+          - name Accounting
+        parents: vlan 20
+
+    - name: Configure VLAN 30
+      ios_config:
+        lines:
+          - name SERVER
+        parents: vlan 30
+
+    - name: Configure VLAN 100
+      ios_config:
+        lines:
+          - name Native
+        parents: vlan 100
+        
+    - name: Enable IP routing
+      when: inventory_hostname in ["MSW1A", "MSW2A"]
+      ios_config:
+        lines:
+          - ip routing
+          
+    - name: Configure VLAN 10 interface with HSRP
+      when: inventory_hostname in ["MSW1A", "MSW2A"]
+      ios_config:
+        parents: interface vlan 10
+        lines:
+          - ip address {{ '192.168.10.1' if inventory_hostname == 'MSW1A' else '192.168.10.2' }} 255.255.255.0
+          - standby 1 ip 192.168.10.254
+          - standby 1 priority {{ '110' if inventory_hostname == 'MSW1A' else '90' }}
+          - standby 1 preempt
+          - no shutdown
+
+    - name: Configure VLAN 20 interface with HSRP
+      when: inventory_hostname in ["MSW1A", "MSW2A"]
+      ios_config:
+        parents: interface vlan 20
+        lines:
+          - ip address {{ '192.168.20.1' if inventory_hostname == 'MSW1A' else '192.168.20.2' }} 255.255.255.0
+          - standby 1 ip 192.168.20.254
+          - standby 1 priority {{ '110' if inventory_hostname == 'MSW1A' else '90' }}
+          - standby 1 preempt
+          - no shutdown
+
+    - name: Configure VLAN 30 interface with HSRP
+      when: inventory_hostname in ["MSW1A", "MSW2A"]
+      ios_config:
+        parents: interface vlan 30
+        lines:
+          - ip address {{ '192.168.30.1' if inventory_hostname == 'MSW1A' else '192.168.30.2' }} 255.255.255.0
+          - standby 1 ip 192.168.30.254
+          - standby 1 priority {{ '110' if inventory_hostname == 'MSW1A' else '90' }}
+          - standby 1 preempt
+          - no shutdown
+
+    - name: Configure Trunk Ports (MSW1A & MSW2A)
+      when: inventory_hostname in ["MSW1A", "MSW2A"]
+      ios_config:
+        parents: "interface range Ethernet0/0 - 2"
+        lines:
+          - switchport trunk encapsulation dot1q
+          - switchport mode trunk
+          - switchport trunk allowed vlan 10,20,30
+          - switchport trunk native vlan 100
+          - no shutdown
+
+    - name: Configure DHCP Exclusions (Only on MSW1A)
+      when: inventory_hostname == "MSW1A"
+      ios_config:
+        lines:
+          - ip dhcp excluded-address 192.168.10.1 192.168.10.10
+          - ip dhcp excluded-address 192.168.20.1 192.168.20.10
+          - ip dhcp excluded-address 192.168.30.1 192.168.30.10
+
+    - name: Configure DHCP Pools for VLANs
+      when: inventory_hostname == "MSW1A"
+      ios_config:
+        parents: "ip dhcp pool {{ item.pool }}"
+        lines:
+          - network {{ item.network }} 255.255.255.0
+          - default-router {{ item.router }}
+          - dns-server 8.8.8.8
+      loop:
+        - { pool: "VLAN10", network: "192.168.10.0", router: "192.168.10.1" }
+        - { pool: "VLAN20", network: "192.168.20.0", router: "192.168.20.1" }
+        - { pool: "VLAN30", network: "192.168.30.0", router: "192.168.30.1" }
+
+    - name: Configure Trunk Ports (Access Switches)
+      when: inventory_hostname in ["ASW1A", "ASW2A", "ASW3A"]
+      ios_config:
+        parents: "interface range Ethernet0/2 - 3"
+        lines:
+          - switchport trunk encapsulation dot1q
+          - switchport mode trunk
+          - switchport trunk allowed vlan 10,20,30
+          - switchport trunk native vlan 100
+          - no shutdown
+
+    - name: Configure Access Port on Ethernet0/0
+      when: inventory_hostname in ["ASW1A", "ASW2A", "ASW3A"]
+      vars:
+        vlan_mapping:
+          ASW1A: { eth0_0: 10, eth0_1: 10 }
+          ASW2A: { eth0_0: 20, eth0_1: 20 }
+          ASW3A: { eth0_0: 30, eth0_1: 30 }
+      ios_config:
+        parents: interface Ethernet0/0
+        lines:
+          - switchport mode access
+          - switchport access vlan {{ vlan_mapping[inventory_hostname].eth0_0 }}
+          - no shutdown
+
+    - name: Configure Access Port on Ethernet0/1
+      when: inventory_hostname in ["ASW1A", "ASW2A", "ASW3A"]
+      vars:
+        vlan_mapping:
+          ASW1A: { eth0_0: 10, eth0_1: 10 }
+          ASW2A: { eth0_0: 20, eth0_1: 20 }
+          ASW3A: { eth0_0: 30, eth0_1: 30 }
+      ios_config:
+        parents: interface Ethernet0/1
+        lines:
+          - switchport mode access
+          - switchport access vlan {{ vlan_mapping[inventory_hostname].eth0_1 }}
+          - no shutdown
+
+    - name: Configure Spanning Tree Protocol (All Devices)
+      ios_config:
+        lines:
+          - spanning-tree mode rapid-pvst
+
+    - name: Save configuration
+      ios_command:
+        commands:
+          - write memory
+
+=============================================================================================
+
+=============================================================================================
+---
+- name: Configure Router & Distribution Switches with OSPF && BGP
+  hosts: MSW1A, MSW2A, RA
+  gather_facts: false
+  connection: network_cli
+
+  vars:
+    ansible_network_os: ios
+    ansible_user: admin
+    ansible_password: pass123
+    ansible_become: yes
+    ansible_become_method: enable
+
+  tasks:
+
+    - name: Enable Loopback interfaces 
+      when: inventory_hostname in ["MSW1A", "MSW2A"]
+      ios_config:
+        lines:
+          - ip address {{ "4.4.4.4" if inventory_hostname == "MSW1A" else "5.5.5.5" }} 255.255.255.255
+          - no shutdown
+        parents: interface Loopback0
+        
+    - name: Enable OSPF Routing on MSW1A & MSW2A
+      when: inventory_hostname in ["MSW1A", "MSW2A"]
+      ios_config:
+        lines:
+          - router-id {{ "4.4.4.4" if inventory_hostname == "MSW1A" else "5.5.5.5" }}
+          - network 192.168.10.0 0.0.0.255 area 20
+          - network 192.168.20.0 0.0.0.255 area 20  
+          - network 192.168.30.0 0.0.0.255 area 20
+          - network {{ "192.168.4.0" if inventory_hostname == "MSW1A" else "192.168.5.0" }} 0.0.0.255 area 20
+          - network {{ "4.4.4.4" if inventory_hostname == "MSW1A" else "5.5.5.5" }} 0.0.0.0 area 20
+        parents: router ospf 1
+
+    - name: Configure OSPF on e0/3 (Connection to RA)
+      when: inventory_hostname in ["MSW1A", "MSW2A"]
+      ios_config:
+        lines:
+          - no switchport
+          - description Connection to RA
+          - ip address {{ "192.168.3.2 255.255.255.0" if inventory_hostname == "MSW1A" else "192.168.4.2 255.255.255.0" }}
+          - ip ospf 1 area 20
+          - no shutdown
+        parents: interface Ethernet0/3
+        
+    - name: Configure OSPF on RA
+      when: inventory_hostname == "RA"
+      ios_config:
+        lines:
+          - router-id 6.6.6.6
+          - network 192.168.3.0 0.0.0.255 area 20
+          - network 192.168.4.0 0.0.0.255 area 20
+          - network 192.168.10.0 0.0.0.255 area 20
+          - network 192.168.20.0 0.0.0.255 area 20
+          - network 192.168.30.0 0.0.0.255 area 20
+          - network 6.6.6.6 0.0.0.0 area 20
+          - redistribute bgp 100 subnets
+          - redistribute bgp 200 metric 10 subnets
+        parents: router ospf 1
+
+    - name: Configure BGP on RA
+      when: inventory_hostname == "RA"
+      ios_config:
+        lines:
+          - bgp log-neighbor-changes
+          - neighbor 10.10.10.2 remote-as 200
+          - neighbor 10.10.20.2 remote-as 200
+          - neighbor 10.10.20.2 weight 50
+          - network 192.168.1.0 mask 255.255.255.0
+          - network 192.168.2.0 mask 255.255.255.0
+          - network 192.168.10.0 mask 255.255.255.0
+          - network 192.168.20.0 mask 255.255.255.0
+          - network 192.168.30.0 mask 255.255.255.0
+          - network 192.168.40.0 mask 255.255.255.0
+          - network 192.168.50.0 mask 255.255.255.0
+          - network 192.168.60.0 mask 255.255.255.0
+          - redistribute ospf 1 match internal external 1 external 2
+          - default-information originate
+        parents: router bgp 100
+        
+    - name: Configure RA Loopback interface
+      when: inventory_hostname == "RA"
+      ios_config:
+        lines:
+          - ip address 6.6.6.6 255.255.255.255
+          - no shutdown
+        parents: interface Loopback0
+        
+    - name: Configure RA interfaces to MSW1A 
+      when: inventory_hostname == "RA"
+      ios_config:
+        lines:
+          - no switchport
+          - description Connection to MSW1A
+          - ip address 192.168.3.1 255.255.255.0
+          - ip ospf 1 area 20
+          - no shutdown
+        parents: interface FastEthernet1/2
+
+    - name: Configure RA interfaces to MSW2A
+      when: inventory_hostname == "RA"
+      ios_config:
+        lines:
+          - no switchport
+          - description Connection to MSW2A
+          - ip address 192.168.4.1 255.255.255.0
+          - ip ospf 1 area 20
+          - no shutdown
+        parents: interface FastEthernet1/3
+
+    - name: Configure RA interfaces to RB
+      when: inventory_hostname == "RA"
+      ios_config:
+        lines:
+          - no switchport
+          - description Connection to RB Primary Link
+          - ip address 10.10.10.1 255.255.255.252
+          - no shutdown
+        parents: interface FastEthernet1/0
+
+    - name: Configure RA interfaces to RB
+      when: inventory_hostname == "RA"
+      ios_config:
+        lines:
+          - no switchport
+          - description Connection to RB Secondnary Link
+          - ip address 10.10.20.1 255.255.255.252
+          - no shutdown
+        parents: interface FastEthernet1/1
+
+    - name: Save configuration
+      ios_command:
+        commands:
+          - write memory
+      become: yes
+      become_method: enable
+
+=================================================================================================
+
+---
+- name: Troubleshoot Cisco IOS Devices
+  hosts: all
+  gather_facts: false
+  connection: network_cli
+
+  vars:
+    ansible_network_os: ios
+    ansible_user: admin
+    ansible_password: pass123
+    ansible_become: yes
+    ansible_become_method: enable
+
+  tasks:
+
+    - name: Check interface status
+      ios_command:
+        commands:
+          - show ip interface brief
+      register: interface_output
+
+    - name: Ensure log directory exists (on control host)
+      delegate_to: localhost
+      file:
+        path: "./interface_status"
+        state: directory
+        mode: '0755'
+
+    - name: Save output to local file
+      delegate_to: localhost
+      copy:
+        content: "{{ interface_output.stdout[0] }}"
+        dest: "./interface_status/{{ inventory_hostname }}.txt"
+
+--------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------
+Ad-Hoc Commands
+---------------
+ansible all -i./myhosts -m raw -a "show version" -u admin -k
+
+----------------------------------------------------------------------------------------------------------
+
+
+
+
