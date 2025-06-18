@@ -1,7 +1,9 @@
-All configurations
-==================
-On RA,MSW1A,MSW2A,ASW1A,ASW2A,ASW3A
-------------------------------
+COMPANY A CONFIGURATION
+=======================
+
+On RA, MSW1A, MSW2A, ASW1A, ASW2A, ASW3A, configure to access via SSH from Network Automation device.
+_____________________________________________________________________________________________________
+
 conf t
 hostname RA
 ip tcp synwait 5
@@ -36,10 +38,9 @@ username admin priv 15
 end
 
 write
-===========================================================
-On network automation
---------------------
-nano myhosts
+____________________________________________________________________________________________________________
+
+Create a myhosts file in Network Automation device: nano myhosts 
 
 RA
 MSW1A
@@ -47,8 +48,9 @@ MSW2A
 ASW1A
 ASW2A
 ASW3A
---------------------
-nano /etc/hosts
+_____________________________________________________________________________________________________________
+
+Adding to hosts file in Network Automation device: nano /etc/hosts
 
 192.168.123.106 RA
 192.168.123.104 MSW1A
@@ -56,17 +58,21 @@ nano /etc/hosts
 192.168.123.101 ASW1A
 192.168.123.102 ASW2A
 192.168.123.103 ASW3A
---------------------
-nano ansible.cfg
+
+______________________________________________________________________________________________________________
+
+Create a cfg file in Network Automation device: nano ansible.cfg
 
 [defaults]
 inventory = ./myhosts
 host_key_checking = false
 timeout = 15
 deprecation_warnings = False
-===============================================================
-nano playbook.yml
-=================
+
+_______________________________________________________________________________________________________________
+
+Create a YML file in Network Automation device: nano configureAccessAndMultilayerSwitches.yml
+
 ---
 - name: Configure All Layer Devices
   hosts: MSW1A, MSW2A, ASW1A, ASW2A, ASW3A
@@ -225,9 +231,10 @@ nano playbook.yml
         commands:
           - write memory
 
-=============================================================================================
+_______________________________________________________________________________________________________
 
-=============================================================================================
+Create a YML file in Network Automation device: nano configureMultilayerswitchAndRouter.yml
+
 ---
 - name: Configure Router & Distribution Switches with OSPF && BGP
   hosts: MSW1A, MSW2A, RA
@@ -366,7 +373,10 @@ nano playbook.yml
       become: yes
       become_method: enable
 
-=================================================================================================
+______________________________________________________________________________________________________
+
+Create a directory in Network Automation device: mkdir interface_status
+Create a YML file in Network Automation device: nano troubleShoot.yml
 
 ---
 - name: Troubleshoot Cisco IOS Devices
@@ -401,14 +411,70 @@ nano playbook.yml
       copy:
         content: "{{ interface_output.stdout[0] }}"
         dest: "./interface_status/{{ inventory_hostname }}.txt"
+        
+__________________________________________________________________________________________________________
 
---------------------------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------------------------
-Ad-Hoc Commands
----------------
+
+Create a YML file in Network Automation device: nano shutdownUnusedPorts.yml
+
+---
+- name: Shutdown unused ports for security
+  hosts: all
+  gather_facts: false
+  connection: network_cli
+
+  vars:
+    ansible_network_os: ios
+    ansible_user: admin
+    ansible_password: pass123
+    ansible_become: yes
+    ansible_become_method: enable
+
+  tasks:
+
+    - name: Shutdown unused ports on access switches and multilayer switches
+      when: inventory_hostname in ["MSW1A", "MSW2A", "ASW1A", "ASW2A", "ASW3A"]
+      ios_config:
+        parents: interface range Ethernet1/1-3
+        lines:
+          - shutdown
+        parents: interface range Ethernet2/0-3
+        lines:
+          - shutdown
+        parents: interface range Ethernet3/1-3
+        lines:
+          - shutdown
+          
+    - name: Shutdown unused ports on router
+      when: inventory_hostname in ["RA"]
+      ios_config:
+        parents: interface FastEthernet0/1
+        lines:
+          - shutdown
+        parents: interface range FastEthernet1/0-15
+        lines:
+          - shutdown
+        parents: interface range FastEthernet1/4-9
+        lines:
+          - shutdown
+        parents: interface range Serial2/0-3
+        lines:
+          - shutdown                                                    
+
+
+__________________________________________________________________________________________________________
+
+Configuration via playbook: ansible-playbook <playbook-name> -u admin -k
+
+__________________________________________________________________________________________________________
+
+Viewing device's status via Ad-Hoc command (not affecting on internal devices)
+
 ansible all -i./myhosts -m raw -a "show version" -u admin -k
+ansible all -i./myhosts -m raw -a "show run" -u admin -k
+ansible all -i./myhosts -m raw -a "show ip interface brief" -u admin -k
 
-----------------------------------------------------------------------------------------------------------
+==========================================================================================================//
 
 
 
